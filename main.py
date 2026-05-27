@@ -6,6 +6,7 @@ from functies import selecteer_netwerksegmenten, verrijk_segmenten_segmentering_
     add_knooptype, verrijk_segmenten, segmenteer_netwerk, netwerk_gesegmenteerd_to_segmenten
 
 
+
 def maak_segmenten(segmenten, segmentering_vc, knopen):
     # voorbereiding
     # haal wegnummers op
