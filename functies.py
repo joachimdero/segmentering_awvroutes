@@ -1,8 +1,3 @@
-import importlib
-import os
-import re
-import sys
-import arcpy
 from maak_split_points import *
 
 try:
@@ -14,22 +9,32 @@ try:
     # importlib.reload(AwvFuncties.AuthenticatieProxyAcmAwv)
     # importlib.reload(AwvFuncties.Locatieservices2)
     importlib.reload(AwvFuncties.WegenregisterAnalyse)
-    # importlib.reload(AwvFuncties)
+    importlib.reload(AwvFuncties)
 except (ModuleNotFoundError, ImportError):
     basemap = "GIStools"
     basispath = os.path.realpath(__file__).split(basemap)[0]
     print("basispath = %s" % basispath)
     path2 = os.path.join(basispath, basemap, "AwvFuncties")
+
+    print("path2 = %s" % path2)
     sys.path.append(path2)
     import AuthenticatieProxyAcmAwv as Auth
     import Locatieservices2 as Ls2
     import WegenregisterAnalyse
-    import AwvFuncties
+    import AwvFuncties.AwvFuncties as AwvFuncties
 
     importlib.reload(Auth)
     importlib.reload(Ls2)
     importlib.reload(WegenregisterAnalyse)
     importlib.reload(AwvFuncties)
+
+
+def dprint(*args, **kwargs):
+    frame = sys._getframe(1)
+    fname = os.path.basename(frame.f_code.co_filename)
+    lineno = frame.f_lineno
+    func = frame.f_code.co_name
+    print(f"[{fname}:{lineno} - {func}()]", *args, **kwargs)
 
 
 def selectie_wegnummer(wegnummer):
@@ -47,6 +52,8 @@ def selectie_wegnummer(wegnummer):
 
 
 def attgenumweg(cookie, segmenten):
+    dprint()
+
     def maak_tabel_attgenumweg_(cookie):
         attgenumweg_table = "attgenumweg_tmp1TableFromLs2"
         if arcpy.Exists(attgenumweg_table):
@@ -87,6 +94,12 @@ def attgenumweg(cookie, segmenten):
 
 
 def verrijk_segmenten(segmenten, ws_oidn_ident2):
+    dprint()
+    segmenten_verrijkt = "WegsegmentVLA_tmp1verrijkt"
+    if arcpy.Exists(segmenten_verrijkt):
+        arcpy.AddMessage(f"{segmenten_verrijkt} bestaat reeds")
+        return segmenten_verrijkt
+
     def add_ident2(segmenten, ws_oidn_ident2):
         if "ident2" not in [f.name.lower() for f in arcpy.ListFields(segmenten)]:
             arcpy.AddField_management(segmenten, "ident2", "TEXT", field_length=6)
@@ -95,10 +108,6 @@ def verrijk_segmenten(segmenten, ws_oidn_ident2):
                 row[1] = ws_oidn_ident2.get(row[0], "")
                 uc.updateRow(row)
 
-    segmenten_verrijkt = "WegsegmentVLA_tmp1verrijkt"
-    if arcpy.Exists(segmenten_verrijkt):
-        arcpy.AddMessage(f"{segmenten_verrijkt} bestaat reeds")
-        return segmenten_verrijkt
     arcpy.CopyFeatures_management(segmenten, segmenten_verrijkt)
     add_ident2(segmenten_verrijkt, ws_oidn_ident2)
 
@@ -106,6 +115,7 @@ def verrijk_segmenten(segmenten, ws_oidn_ident2):
 
 
 def add_knooptype(knopen, segmenten):
+    dprint()
     if "knooptype" in [f.name for f in arcpy.ListFields(knopen)]:
         arcpy.AddMessage("veld knooptype bestaat reeds en wordt niet herrekend")
     else:
@@ -120,6 +130,7 @@ def add_knooptype(knopen, segmenten):
 
 
 def selecteer_netwerksegmenten(segmenten, attgenumweg_geom_dict):
+    dprint()
     netwerksegmenten_selectie = "netwerksegmenten_tmp1SelectieSegmenten"
     arcpy.AddMessage(f"{'selecteer_netwerksegmenten'.upper()} => {netwerksegmenten_selectie}")
     # maak een selectie van wegsegmenten
@@ -179,6 +190,7 @@ def selecteer_netwerksegmenten(segmenten, attgenumweg_geom_dict):
 
 
 def selecteer_segmenten_intersect_netwerk(segmenten, netwerksegmenten_segmenten, wbn):
+    dprint()
     arcpy.AddMessage(f"{'selecteer_segmenten_intersect_netwerk'.upper()}, bron:{segmenten}")
     # maak een selectie van wegsegmenten
     # de selectie moet de segmenten bevatten die je wil groeperen in netwerksegmenten en de segmenten waar je
@@ -225,6 +237,7 @@ def selecteer_segmenten_intersect_netwerk(segmenten, netwerksegmenten_segmenten,
         arcpy.AddField_management(segmenten_intersect_netwerk, f.name, f.type, f.length)
 
     def selecteer_exporteer_intersect_segmenten(segmenten, where_clause, netwerksegmenten_segmenten_wsoidns):
+        dprint()
         f_cursors = ["SHAPE@"] + fields_add
         with arcpy.da.SearchCursor(segmenten, f_cursors, where_clause) as sc, \
                 arcpy.da.InsertCursor(segmenten_intersect_netwerk, f_cursors) as ic:
@@ -254,7 +267,7 @@ def verrijk_segmenten_segmentering_vc(segmenten, segmentering_vc):
     return segmenten
 
 
-def maak_genummerde_routes(netwerksegmenten_segmenten, attgenumweg_table, geom_segmenten):
+def maak_genummerde_routes(netwerksegmenten_segmenten, attgenumweg_table, geom_segmenten, rijstroken):
     attgenumweg_fc = "netwerksegmenten_tmp2routes"
     attgenumweg_dissolve = "netwerksegmenten_tmp3RoutesDissolve"
     if arcpy.Exists(attgenumweg_dissolve):
@@ -278,14 +291,48 @@ def maak_genummerde_routes(netwerksegmenten_segmenten, attgenumweg_table, geom_s
             reversed_array = arcpy.Array([pt for pt in reversed(part)])
             return arcpy.Polyline(reversed_array, polyline.spatialReference)
 
+        def rijrichting(rijstroken):
+            rijrichting_dict = {}
+            with arcpy.da.SearchCursor(rijstroken, ["ws_oidn", "richting"]) as sc:
+                for ws_oidn, richting in sc:
+                    rijrichting_dict[ws_oidn] = richting
+            return rijrichting_dict
+
+        rijrichting_dict = rijrichting(rijstroken)
+
+        def rijrichting_exist(rijrichting_dict, ws_oidn, wegnummer, richting_route):
+            rijrichting_segment = rijrichting_dict.get(ws_oidn)
+            laatste_cijfer = int(wegnummer[-1])
+            even = 2 if laatste_cijfer % 2 == 0 else 1
+
+            if rijrichting_segment == 3:
+                return True
+
+            # Zelfde richting
+            if richting_route == 1 and even == 1:
+                if rijrichting_segment == 1:
+                    return True
+            elif richting_route == 1 and even == 2:
+                if rijrichting_segment == 2:
+                    return True
+            elif richting_route == 2 and even == 1:
+                if rijrichting_segment == 2:
+                    return True
+            elif richting_route == 2 and even == 2:
+                if rijrichting_segment == 1:
+                    return True
+
+            return False
+
         netwerksegmenten_segmenten_ws_oidn = set(
             [row[0] for row in arcpy.da.SearchCursor(netwerksegmenten_segmenten, "ws_oidn")])
         f_sc = ["ws_oidn", "wegnummer", "richting"]
         f_ic = ["SHAPE@"] + f_sc + ["richting_segment"]
         ic = arcpy.da.InsertCursor(attgenumweg_fc, f_ic)
-        with arcpy.da.SearchCursor(attgenumweg_table, f_sc) as sc:
+        with (arcpy.da.SearchCursor(attgenumweg_table, f_sc) as sc):
             for ws_oidn, wegnummer, richting_route in sc:
-                if ws_oidn in geom_segmenten and ws_oidn in netwerksegmenten_segmenten_ws_oidn:
+                if ws_oidn in geom_segmenten and ws_oidn in netwerksegmenten_segmenten_ws_oidn and rijrichting_exist(
+                        rijrichting_dict, ws_oidn, wegnummer, richting_route) == True:
                     geom = geom_segmenten[ws_oidn]
                     if richting_route == 2:
                         geom = reverse_polyline(geom)
@@ -322,9 +369,9 @@ def maak_split_points(knopen, segmenten_verrijkt, netwerksegmenten_segmenten, se
 
     netwerksegmenten_intersect_merge = "knopenSplit_tmp1selectiewegsegmenten"
     arcpy.Merge_management([netwerksegmenten_segmenten, segmenten_intersect_netwerk], netwerksegmenten_intersect_merge)
-    #selectie 1: knopen die op netwerksegmenten_segmenten liggen
+    # selectie 1: knopen die op netwerksegmenten_segmenten liggen
     knopen_netwerk = selectie_knopen_netwerk_to_fc(netwerksegmenten_intersect_merge, knopen)
-    #selectie 2: kruispuntknopen op basis van selectie 1
+    # selectie 2: kruispuntknopen op basis van selectie 1
     knopen_knooptype_kruispunt = selectie_knooptype_kruispunt(knopen_netwerk, netwerksegmenten_intersect_merge)
     # bijkomende selectie knopen op rotondes
     knopen_rotonde = "knopenSplit_tmp6selectieRotondeknopen"
@@ -336,8 +383,8 @@ def maak_split_points(knopen, segmenten_verrijkt, netwerksegmenten_segmenten, se
     )
     # bijkomende selectie knopen aan overzijde van kruispuntknoop indien niet mee geselecteerd in eerdere selectie
     bijkomende_kruispuntknopen = selecteer_bijkomende_kruispuntknopen2(
-        knopen_knooptype_kruispunt,#reeds geselecteerde kruispuntknopen
-        knopen_netwerk,#alle knopen in netwerk
+        knopen_knooptype_kruispunt,  # reeds geselecteerde kruispuntknopen
+        knopen_netwerk,  # alle knopen in netwerk
         wbn,
         segmenten_verrijkt,
         netwerksegmenten_segmenten
@@ -345,7 +392,14 @@ def maak_split_points(knopen, segmenten_verrijkt, netwerksegmenten_segmenten, se
 
     arcpy.Merge_management(
         inputs=[knopen_knooptype_kruispunt, knopen_rotonde, bijkomende_kruispuntknopen],
-        output=knopen_split
+        output="knopenSplit_tmp7merge"
+    )
+    arcpy.Dissolve_management(
+        in_features="knopenSplit_tmp7merge",
+        out_feature_class=knopen_split,
+        dissolve_field=['WK_OIDN', 'WK_UIDN', 'TYPE', 'LBLTYPE', 'knooptype', 'knooptype_selectie',
+                        'knooptype_selectie2'],
+        multi_part="SINGLE_PART"
     )
     arcpy.AddMessage(f"{arcpy.GetCount_management(knopen_split)[0]} knopen in {knopen_split}")
     return knopen_split
@@ -376,12 +430,12 @@ def segmenteer_netwerk(netwerk_niet_gesegmenteerd, knopen_netwerksegmenten_split
         field_type="TEXT",
         field_length=20
     )
+    return netwerk_gesegmenteerd
     arcpy.CalculateField_management(
         in_table=netwerk_gesegmenteerd,
         field="netwerk_id",
         expression="!OBJECTID!"
     )
-    return netwerk_gesegmenteerd
 
 
 def netwerk_gesegmenteerd_to_segmenten(netwerk_gesegmenteerd, netwerksegmenten_segmenten):
@@ -398,3 +452,192 @@ def netwerk_gesegmenteerd_to_segmenten(netwerk_gesegmenteerd, netwerksegmenten_s
         distance_field_name="",
         match_fields="wegnummer wegnummer"
     )
+
+
+def field_mapping_kruispunt_wbn(kruispunten_rotondes, wbn_kruispunt_lyr, param):
+    # Maak field mappings object
+    fm = arcpy.FieldMappings()
+
+    # Voeg target fields automatisch toe
+    fm.addTable(kruispunten_rotondes)
+
+    # Maak fieldmap voor OIDN uit join layer
+    field_map = arcpy.FieldMap()
+    field_map.addInputField(wbn_kruispunt_lyr, "OIDN")
+
+    # Output veld definiëren (optioneel hernoemen)
+    out_field = field_map.outputField
+    out_field.name = "OIDN"
+    out_field.aliasName = "OIDN"
+    field_map.outputField = out_field
+
+    # Voeg toe aan mappings
+    fm.addFieldMap(field_map)
+    return fm
+
+
+def dissolve_kruispunten_rotondes(selectie_netwerksegmenten_tmp, wegsegmenten, wbn, knopen_split):
+    """
+    maak layer met segmenten die kruispunten of rotondes bevatten
+    selectie criteria:
+    - morfologie is rotonde
+    of
+    - segment voldoet aan volgende voorwaarden
+        - segment valt volledig in een kruispuntzone uit wegbaan GRB
+        - segment heeft morfologie 'weg bestaande uit gescheiden rijbanen'
+        - segment raakt 2 splitknopen
+    """
+    print("maak segmenten kruispunten en rotondes".upper())
+    netwerk_gesegmenteerd = "netwerksegmenten_tmp9mergeTeBehoudenEnKruispuntRotondes"
+    if arcpy.Exists(netwerk_gesegmenteerd):
+        arcpy.AddMessage(f"{netwerk_gesegmenteerd} bestaat reeds")
+        return netwerk_gesegmenteerd
+
+    def selectie_netwerksegmenten_rotondes(selectie_netwerksegmenten_tmp, wegsegmenten):
+        rotondes_lyr = arcpy.MakeFeatureLayer_management(
+            in_features=wegsegmenten,
+            out_layer="rotondes_lyr",
+            where_clause="LBLMORF = 'rotonde' And LBLBEHEER LIKE 'District%'"
+        )
+        netwerksegmenten_rotondes_lyr = arcpy.MakeFeatureLayer_management(selectie_netwerksegmenten_tmp,
+                                                                          "netwerksegmenten_tmp_lyr")
+        print(
+            f"aantal netwerksegmenten voor selectie rotondes: {arcpy.GetCount_management(netwerksegmenten_rotondes_lyr)[0]}")
+        arcpy.management.SelectLayerByLocation(
+            in_layer=netwerksegmenten_rotondes_lyr,
+            overlap_type="WITHIN_CLEMENTINI",
+            select_features=rotondes_lyr,
+            search_distance=None,
+            selection_type="NEW_SELECTION",
+            invert_spatial_relationship="NOT_INVERT"
+        )
+        print(
+            f"aantal netwerksegmenten na selectie rotondes: {arcpy.GetCount_management(netwerksegmenten_rotondes_lyr)[0]}")
+        return netwerksegmenten_rotondes_lyr
+
+    def selectie_netwerksegmenten_kruispunten(netwerksegmenten_tmp, knopen_split, wbn_kruispunt_lyr, wegsegmenten):
+        gescheiden_rijbanen_lyr = arcpy.MakeFeatureLayer_management(
+            wegsegmenten,
+            "gescheiden_rijbanen_lyr",
+            where_clause="LBLMORF = 'weg met gescheiden rijbanen die geen autosnelweg is' And LBLBEHEER LIKE 'District%'"
+        )
+        print(f"aantal gescheiden rijbanen: {arcpy.GetCount_management(gescheiden_rijbanen_lyr)[0]}")
+        netwerksegmenten_kruispunt_lyr = arcpy.MakeFeatureLayer_management(
+            in_features=netwerksegmenten_tmp,
+            out_layer="netwerksegmenten_kruispunt_lyr"
+        )
+        print(
+            f"aantal netwerksegmenten voor selectie kruispunten: {arcpy.GetCount_management(netwerksegmenten_kruispunt_lyr)[0]}")
+        netwerksegmenten_kruispunt_lyr = arcpy.management.SelectLayerByLocation(
+            in_layer=netwerksegmenten_kruispunt_lyr,
+            overlap_type="COMPLETELY_WITHIN",
+            select_features=wbn_kruispunt_lyr,
+            search_distance=None,
+            selection_type="NEW_SELECTION",
+            invert_spatial_relationship="NOT_INVERT"
+        )
+        print(
+            f"aantal netwerksegmenten na selectie volledig binnen kruispuntzone: {arcpy.GetCount_management(netwerksegmenten_kruispunt_lyr)[0]}")
+        # selecteer segmenten die raken aan 2 splitknopen
+        arcpy.management.AddSpatialJoin(
+            target_features=netwerksegmenten_kruispunt_lyr,
+            join_features=knopen_split,
+            join_operation="JOIN_ONE_TO_ONE",
+            join_type="KEEP_ALL",
+            field_mapping=None,
+            match_option="INTERSECT",
+            search_radius=None,
+            distance_field_name="",
+            permanent_join="NO_PERMANENT_FIELDS",
+            match_fields=None
+        )
+        join_field = [f.name for f in arcpy.ListFields(netwerksegmenten_kruispunt_lyr)][0]
+        arcpy.management.SelectLayerByAttribute(
+            in_layer_or_view=netwerksegmenten_kruispunt_lyr,
+            where_clause=f"{join_field} >= 2",
+            selection_type="SUBSET_SELECTION"
+        )
+        print(
+            f"aantal netwerksegmenten na selectie segmenten die raken aan 2 splitknopen: {arcpy.GetCount_management(netwerksegmenten_kruispunt_lyr)[0]}")
+        arcpy.management.RemoveJoin(netwerksegmenten_kruispunt_lyr)
+        arcpy.SelectLayerByLocation_management(
+            in_layer=netwerksegmenten_kruispunt_lyr,
+            overlap_type="WITHIN_CLEMENTINI",
+            select_features=gescheiden_rijbanen_lyr,
+            search_distance=None,
+            selection_type="SUBSET_SELECTION",
+            invert_spatial_relationship="NOT_INVERT"
+        )
+        print(
+            f"aantal netwerksegmenten na selectie segmenten die gescheiden rijbanen bevatten: {arcpy.GetCount_management(netwerksegmenten_kruispunt_lyr)[0]}")
+        # VOORLOPGIGE TEST
+        arcpy.ExportFeatures_conversion(
+            in_features=netwerksegmenten_kruispunt_lyr,
+            out_features="test_selectie_kruispuntsegmenten"
+        )
+        return netwerksegmenten_kruispunt_lyr
+
+    wbn_kruispunt_lyr = arcpy.MakeFeatureLayer_management(
+        in_features=wbn,
+        out_layer="wbn_kruispunt_lyr",
+        where_clause="LBLTYPE ='kruispuntzone'"
+    )
+
+    netwerksegmenten_rotondes_lyr = selectie_netwerksegmenten_rotondes(selectie_netwerksegmenten_tmp, wegsegmenten)
+    gescheiden_rijbanen_kruispunt_lyr = selectie_netwerksegmenten_kruispunten(selectie_netwerksegmenten_tmp,
+                                                                              knopen_split, wbn_kruispunt_lyr,
+                                                                              wegsegmenten)
+
+    # voeg selectie netwerksegmenten kruispunten en rotondes samen
+    kruispunten_rotondes = arcpy.Merge_management(
+        inputs=[netwerksegmenten_rotondes_lyr,
+                gescheiden_rijbanen_kruispunt_lyr],
+        output="netwerksegmenten_tmp6KruispuntenRotondes_merge"
+    )
+
+    # voeg OIDN van wbn toe aan geselecteerde segmenten
+    netwerksegmenten_oidnWbn = arcpy.SpatialJoin_analysis(
+        target_features=kruispunten_rotondes,
+        join_features=wbn_kruispunt_lyr,
+        out_feature_class="netwerksegmenten_tmp7oidnWbn",
+        join_operation="JOIN_ONE_TO_ONE",
+        join_type="KEEP_ALL",
+        field_mapping=field_mapping_kruispunt_wbn(kruispunten_rotondes, wbn_kruispunt_lyr, ["OIDN"]),
+        match_option="COMPLETELY_WITHIN",
+        search_radius=None,
+        distance_field_name="",
+        match_fields=None
+    )
+    netwerksegmenten_dissolve = arcpy.Dissolve_management(
+        in_features=netwerksegmenten_oidnWbn,
+        out_feature_class="netwerksegmenten_tmp8dissolve",
+        dissolve_field=["OIDN"],
+        multi_part="MULTI_PART",
+        unsplit_lines="DISSOLVE_LINES",
+        statistics_fields=[["wegnummer", "CONCATENATE"]],
+        concatenation_separator=";"
+    )
+    # verwijder aangepaste netwerksegmenten
+    te_verwijderen_netwerksegmenten_lyr = arcpy.MakeFeatureLayer_management(
+        in_features=selectie_netwerksegmenten_tmp,
+        out_layer="te_verwijderen_netwerksegmenten_lyr"
+    )
+    te_behouden_netwerksegmenten_lyr = arcpy.management.SelectLayerByLocation(
+        in_layer=selectie_netwerksegmenten_tmp,
+        overlap_type="WITHIN_CLEMENTINI",
+        select_features=netwerksegmenten_dissolve,
+        search_distance=None,
+        selection_type="NEW_SELECTION",
+        invert_spatial_relationship="INVERT"
+    )
+    netwerksegmenten_mergeTeBehoudenEnKruispuntRotondes = arcpy.Merge_management(
+        inputs=[te_behouden_netwerksegmenten_lyr, netwerksegmenten_dissolve],
+        output=netwerk_gesegmenteerd
+    )
+    arcpy.CalculateField_management(
+        in_table=netwerksegmenten_mergeTeBehoudenEnKruispuntRotondes,
+        field="netwerk_id",
+        expression="!OBJECTID!"
+    )
+
+    return netwerksegmenten_mergeTeBehoudenEnKruispuntRotondes

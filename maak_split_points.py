@@ -94,6 +94,10 @@ def selecteer_bijkomende_kruispuntknopen(knopen_knooptype_kruispunt, knopen_netw
     :param segmenten:
     :return:
     """
+    bijkomende_kruispuntknopen = "knopenSplit_tmp5bijkomendeKruispuntknopen"
+    if arcpy.Exists(bijkomende_kruispuntknopen):
+        print(f"{bijkomende_kruispuntknopen} bestaat al")
+        return bijkomende_kruispuntknopen
     kruispuntzone_lr = 'kruispuntzone_lr'
     # maak selectie kruispuntzones
     arcpy.MakeFeatureLayer_management(
@@ -181,6 +185,11 @@ def selecteer_bijkomende_kruispuntknopen2(knopen_knooptype_kruispunt, knopen_net
     arcpy.AddMessage(f"knopen_knooptype_kruispunt: {knopen_knooptype_kruispunt}")
     arcpy.AddMessage(f"knopen_netwerk: {knopen_netwerk}")
     arcpy.AddMessage(f"segmenten: {segmenten}")
+
+    bijkomende_kruispuntknopen = "knopenSplit_tmp5bijkomendeKruispuntknopen"
+    if arcpy.Exists(bijkomende_kruispuntknopen):
+        print(f"{bijkomende_kruispuntknopen} bestaat al")
+        return bijkomende_kruispuntknopen
     # er moeten enkel bijkomende knopen geselecteerd worden voor kruispunten op wegen met gescheiden rijbanen.
     # deze moeten in de buurt liggen van een reeds geselecteerde kruispuntknoop
     # → selecteer de netwerksegmenten_segmenten met morfologie 'weg met gescheiden rijbanen die geen autosnelweg is'
