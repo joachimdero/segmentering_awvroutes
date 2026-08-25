@@ -1,11 +1,12 @@
 import arcpy
+import logging
+# maak logging aan
+
 
 from functies import selecteer_netwerksegmenten, verrijk_segmenten_segmentering_vc, \
     maak_genummerde_routes, selecteer_segmenten_intersect_netwerk, attgenumweg, maak_split_points, \
     add_knooptype, verrijk_segmenten, segmenteer_netwerk, netwerk_gesegmenteerd_to_segmenten, \
     dissolve_kruispunten_rotondes,dprint
-
-
 
 
 
@@ -50,13 +51,13 @@ def maak_segmenten(segmenten, segmentering_vc, knopen, rijstroken):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    arcpy.env.workspace = r"C:\Users\derojp\Vlaamse overheid - Office 365\TeamAIM-BIM - Team_AssetBeheer_projecten\AddHoc\Segmentering\Segmentering20260602.gdb"
+    arcpy.env.workspace = r"C:\Users\derojp\Vlaamse overheid - Office 365\TeamAIM-BIM - Team_AssetBeheer_projecten\AddHoc\Segmentering\Segmentering20260824.gdb"
     arcpy.env.overwriteOutput = True
     segmenten = "WegsegmentVLA"
     knopen = "WegknoopVLA"
     rijstroken = "AttRijstrokenVLA"
     segmentering_vc = None
-    cookie = "97e52d3501d04ab9860a57482f743e5b"
+    cookie = "84628365c4b74008aa51a4638f6213b4"
     wbn = r"C:\Users\derojp\Vlaamse overheid - Office 365\TeamAIM-BIM - Team_AssetBeheer_GisCommons\GISdata\grb.gdb\Wbn"
 
     maak_segmenten(segmenten, segmentering_vc, knopen, rijstroken)

@@ -5,15 +5,15 @@ import sys
 import arcpy
 
 try:
-    from ....AwvFuncties import AuthenticatieProxyAcmAwv as Auth
-    from ....AwvFuncties import Locatieservices2 as Ls2
-    from ....AwvFuncties import WegenregisterAnalyse
-    from ....AwvFuncties import AwvFuncties
+    from ....AwvFunctiesAlgemeen import AuthenticatieProxyAcmAwv as Auth
+    from ....AwvFunctiesAlgemeen import Locatieservices2 as Ls2
+    from ....AwvFunctiesAlgemeen import WegenregisterAnalyse
+    from ....AwvFunctiesAlgemeen import AwvFunctiesAlgemeen
 
-    # importlib.reload(AwvFuncties.AuthenticatieProxyAcmAwv)
-    # importlib.reload(AwvFuncties.Locatieservices2)
-    importlib.reload(AwvFuncties.WegenregisterAnalyse)
-    # importlib.reload(AwvFuncties)
+    # importlib.reload(AwvFunctiesAlgemeen.AuthenticatieProxyAcmAwv)
+    # importlib.reload(AwvFunctiesAlgemeen.Locatieservices2)
+    importlib.reload(AwvFunctiesAlgemeen.WegenregisterAnalyse)
+    # importlib.reload(AwvFunctiesAlgemeen)
 except (ModuleNotFoundError, ImportError):
     basemap = "GIStools"
     basispath = os.path.realpath(__file__).split(basemap)[0]
@@ -23,12 +23,12 @@ except (ModuleNotFoundError, ImportError):
     import AuthenticatieProxyAcmAwv as Auth
     import Locatieservices2 as Ls2
     import WegenregisterAnalyse
-    import AwvFuncties
+    import AwvFunctiesAlgemeen
 
     importlib.reload(Auth)
     importlib.reload(Ls2)
     importlib.reload(WegenregisterAnalyse)
-    importlib.reload(AwvFuncties)
+    importlib.reload(AwvFunctiesAlgemeen)
 
 
 def selectie_knopen_netwerk_to_fc(segmenten, knopen):

@@ -1,15 +1,15 @@
 from maak_split_points import *
 
 try:
-    from ....AwvFuncties import AuthenticatieProxyAcmAwv as Auth
-    from ....AwvFuncties import Locatieservices2 as Ls2
-    from ....AwvFuncties import WegenregisterAnalyse
-    from ....AwvFuncties import AwvFuncties
+    from ....AwvFunctiesAlgemeen import AuthenticatieProxyAcmAwv as Auth
+    from ....AwvFunctiesAlgemeen import Locatieservices2 as Ls2
+    from ....AwvFunctiesAlgemeen import WegenregisterAnalyse
+    from ....AwvFunctiesAlgemeen import AwvFunctiesAlgemeen
 
-    # importlib.reload(AwvFuncties.AuthenticatieProxyAcmAwv)
-    # importlib.reload(AwvFuncties.Locatieservices2)
-    importlib.reload(AwvFuncties.WegenregisterAnalyse)
-    importlib.reload(AwvFuncties)
+    # importlib.reload(AwvFunctiesAlgemeen.AuthenticatieProxyAcmAwv)
+    # importlib.reload(AwvFunctiesAlgemeen.Locatieservices2)
+    importlib.reload(AwvFunctiesAlgemeen.WegenregisterAnalyse)
+    importlib.reload(AwvFunctiesAlgemeen)
 except (ModuleNotFoundError, ImportError):
     basemap = "GIStools"
     basispath = os.path.realpath(__file__).split(basemap)[0]
@@ -21,12 +21,12 @@ except (ModuleNotFoundError, ImportError):
     import AuthenticatieProxyAcmAwv as Auth
     import Locatieservices2 as Ls2
     import WegenregisterAnalyse
-    import AwvFuncties.AwvFuncties as AwvFuncties
+    import AwvFunctiesAlgemeen as AwvFunctiesAlgemeen
 
     importlib.reload(Auth)
     importlib.reload(Ls2)
     importlib.reload(WegenregisterAnalyse)
-    importlib.reload(AwvFuncties)
+    importlib.reload(AwvFunctiesAlgemeen)
 
 
 def dprint(*args, **kwargs):
@@ -73,7 +73,7 @@ def attgenumweg(cookie, segmenten):
             for ws_oidn, wegnummer in sc:
                 if selectie_wegnummer(wegnummer):  # onbelangrijke wegen op basis van wegnummer uitsluiten
                     attgenumweg_wsoidns.add(ws_oidn)
-                    ident2 = AwvFuncties.ident8_to_ident2(wegnummer)
+                    ident2 = AwvFunctiesAlgemeen.ident8_to_ident2(wegnummer)
                     if ident2 != "":
                         ws_oidn_ident2[ws_oidn] = ident2
                     elif ws_oidn not in ws_oidn_ident2:
@@ -326,7 +326,7 @@ def maak_genummerde_routes(netwerksegmenten_segmenten, attgenumweg_table, geom_s
 
         netwerksegmenten_segmenten_ws_oidn = set(
             [row[0] for row in arcpy.da.SearchCursor(netwerksegmenten_segmenten, "ws_oidn")])
-        f_sc = ["ws_oidn", "wegnummer", "richting"]
+        f_sc = ["ws_oidn", "wegnummer", "richting_route"]
         f_ic = ["SHAPE@"] + f_sc + ["richting_segment"]
         ic = arcpy.da.InsertCursor(attgenumweg_fc, f_ic)
         with (arcpy.da.SearchCursor(attgenumweg_table, f_sc) as sc):
@@ -342,7 +342,7 @@ def maak_genummerde_routes(netwerksegmenten_segmenten, attgenumweg_table, geom_s
                         richting_segment = 1 if richting_route == 2 else 2
                     row_new = [geom, ws_oidn, wegnummer, richting_route, richting_segment]
                     ic.insertRow(row_new)
-        arcpy.AlterField_management(attgenumweg_fc, "richting", "richting_route")
+        # arcpy.AlterField_management(attgenumweg_fc, "richting", "richting_route")
         return attgenumweg_fc
 
     attgenumweg_fc = add_geometry_to_attgenumweg(geom_segmenten, attgenumweg_table)
